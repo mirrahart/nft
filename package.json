@@ -1,0 +1,27 @@
+{
+  "name": "hardhat-project",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.5",
+    "@nomiclabs/hardhat-etherscan": "^3.0.3",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "chai": "^4.3.6",
+    "ethereum-waffle": "^3.4.4",
+    "ethers": "^5.6.4",
+    "hardhat": "^2.9.3",
+    "ts-node": "^10.7.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "deploy:rinkeby": "hardhat run --network rinkeby ./scripts/deploy-script.js",
+    "mint:rinkeby": "hardhat run --network rinkeby ./scripts/mint-script.js",
+    "deploy:ropsten": "hardhat run --network ropsten ./scripts/deploy-script.js",
+    "mint:ropsten": "hardhat run --network ropsten ./scripts/mint-script.js",
+    "deploy:mumbai": "hardhat run --network mumbai ./scripts/deploy-script.js",
+    "mint:mumbai": "hardhat run --network mumbai ./scripts/mint-script.js",
+    "deploy:ftm": "hardhat run --network ftm ./scripts/deploy-script.js",
+    "mint:ftm": "hardhat run --network ftm ./scripts/mint-script.js"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.5.0"
+  }
+}
