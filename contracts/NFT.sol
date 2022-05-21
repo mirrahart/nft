@@ -1,24 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./access/InitializableOwnable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
-contract MirrahArt is ERC721, Ownable {
+contract MirrahArt is InitializableOwnable, ERC721Enumerable {
 
-  using Counters for Counters.Counter;
   using Strings for uint256;
-  Counters.Counter private _tokenIds;
 
-  mapping (uint256 => string) private _tokenURIs;
-  
-  constructor() ERC721("MirrahArt", "Mirrah") {}
+  mapping (uint256 => string) private tokenState;
 
-  function _setTokenURI(uint256 tokenId, string memory _tokenURI)
-    internal
-    virtual {
-    _tokenURIs[tokenId] = _tokenURI;
+  constructor() ERC721("MirrahArt", "Mirrah") {
+    initOwner(msg.sender);
   }
 
   function tokenURI(uint256 tokenId) 
@@ -27,28 +20,39 @@ contract MirrahArt is ERC721, Ownable {
     virtual
     override
     returns (string memory) {
-    require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
-    string memory _tokenURI = _tokenURIs[tokenId];
-    return _tokenURI;
-  }
-
-  function mint(address recipient)
-    public
-    onlyOwner
-    returns (uint256) {
-    _tokenIds.increment();
-    uint256 newItemId = _tokenIds.current();
-    _mint(recipient, newItemId);
+    require(_exists(tokenId), "ERC721Metadata: No token");
+    string memory savedState = tokenState[tokenId];
+    string memory state;
+    if (bytes(savedState).length == 0) {
+      state = "default";
+    } else {
+      state = savedState;
+    }
     string memory uri = 
       string(
           abi.encodePacked(
-              'https://nft.mirrah.art/memorable/metadata/',
-              Strings.toString(newItemId),
+              'https://s.nft.mirrah.art/one/metadata/',
+              Strings.toString(tokenId),
+              '/',
+              state,
               '.json'
           )
       );
-    
-    _setTokenURI(newItemId, uri);
-    return newItemId;
+    return uri;
+  }
+
+  function mintMultiple(
+    address to_, 
+    uint256 count_
+  ) external onlyAdminOrOwner {
+    for (uint256 i = 0; i < count_; i++) {
+      uint256 id = totalSupply();
+      _mint(to_, id);
+    }
+  }
+
+  function requestStateUpdate(uint256 tokenId)
+    external {
+      require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
   }
 }

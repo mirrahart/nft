@@ -1,5 +1,11 @@
 {
     "image": "https://nft.mirrah.art/first/1.png",
+    "stage_images": [
+        {
+            "index": 1,
+            "value": "https://nft.mirrah.art/first/1.png"
+        }
+    ],
     "description": "Mirrah.art vase - evolving, interactive NFT",
     "name": "Mirrah.art One",
     "attributes": [
@@ -10,6 +16,12 @@
         {
             "trait_type": "Collection",
             "value": "First"
+        }
+    ],
+    "colors": [
+        { 
+            "name": "blue",
+            "hex" : "ffffff"
         }
     ],
     "background_color": "ffffff"
