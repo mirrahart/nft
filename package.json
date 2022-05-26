@@ -13,13 +13,8 @@
   },
   "scripts": {
     "deploy:rinkeby": "hardhat run --network rinkeby ./scripts/deploy-script.js",
-    "mint:rinkeby": "hardhat run --network rinkeby ./scripts/mint-script.js",
     "deploy:ropsten": "hardhat run --network ropsten ./scripts/deploy-script.js",
-    "mint:ropsten": "hardhat run --network ropsten ./scripts/mint-script.js",
-    "deploy:mumbai": "hardhat run --network mumbai ./scripts/deploy-script.js",
-    "mint:mumbai": "hardhat run --network mumbai ./scripts/mint-script.js",
-    "deploy:ftm": "hardhat run --network ftm ./scripts/deploy-script.js",
-    "mint:ftm": "hardhat run --network ftm ./scripts/mint-script.js"
+    "deploy:ethereum": "hardhat run --network mainnet ./scripts/deploy-script.js"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.5.0"
