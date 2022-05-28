@@ -1,6 +1,9 @@
 const ethereumAddress = ""
 const rinkebyAddress = ""
-const deployAddress = ropstenAddress
+const deployAddress = rinkebyAddress
+
+const artist = "0x709Ba910aF125285BC99d4D49e4381D49b3A4874"
+const developer = "0x3eb6Bf5B7AC2B683c787f7aac59683A8d05d885d"
 
 const usdcEthereum = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 const usdcRinkeby = "0x7f3a66bd60ec7a0fdb95fadbaa6648f512ce2f26"
@@ -13,8 +16,8 @@ const dai = daiRinkeby
 async function main() {
   const NFT = await hre.ethers.getContractFactory("MirrahArt")
   const nft = await NFT.deploy(
-    "0x709Ba910aF125285BC99d4D49e4381D49b3A4874", // Artist - metamask
-    "0x3eb6Bf5B7AC2B683c787f7aac59683A8d05d885d", // Developer
+    artist, // Artist - metamask
+    developer,
     usdc,
     dai,
   )
@@ -23,11 +26,11 @@ async function main() {
 
   await delay(20000)
   await hre.run("verify:verify", {
-    address: address,
+    address: nft.address,
     network: hre.network,
     constructorArguments: [
-      "0x709Ba910aF125285BC99d4D49e4381D49b3A4874", // Artist - metamask
-      "0x3eb6Bf5B7AC2B683c787f7aac59683A8d05d885d", // Developer
+      artist, 
+      developer,
       usdc,
       dai,
   ]

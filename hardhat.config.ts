@@ -1,5 +1,7 @@
-require("@nomiclabs/hardhat-waffle");
-require("@nomiclabs/hardhat-etherscan");
+import '@typechain/hardhat'
+import '@nomiclabs/hardhat-ethers'
+import '@nomiclabs/hardhat-waffle'
+import "@nomiclabs/hardhat-etherscan"
 require('dotenv').config();
 
 import { resolve } from "path";
@@ -9,7 +11,7 @@ dotenvConfig({ path: resolve(__dirname, "./.env") });
 const { PRIVATE_KEY, ETHERSCAN, POLYGONSCAN, FTMSCAN } = process.env;
 
  module.exports = {
-  defaultNetwork: "matic",
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
     },
@@ -74,6 +76,10 @@ const { PRIVATE_KEY, ETHERSCAN, POLYGONSCAN, FTMSCAN } = process.env;
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts"
+  },
+  typechain: {
+    outDir: "types",
+    target: "ethers-v5",
   },
   mocha: {
     timeout: 20000

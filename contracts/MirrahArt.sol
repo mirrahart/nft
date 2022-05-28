@@ -41,8 +41,8 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable {
     address developer_,
     address usdc_,
     address dai_
-  ) ERC721("MirrahArt", "Mirrah") {
-    initOwner(developer_);
+  ) ERC721("TestMirrahArt", "TestMirrah") {
+    initOwner(msg.sender);
     artist = artist_;
     developer = developer_;
     usdc = usdc_;
@@ -130,7 +130,7 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable {
     modifier paid(Currency currency, uint dollarAmount) {
       address tokenAddress = tokenForCurrency(currency);
       uint amount = dollarAmount * IERC20Metadata(tokenAddress).decimals();
-      require(IERC20(tokenAddress).transfer(address(this), amount), "Payment didn't go through");
+      require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount), "Payment didn't go through");
       _;
     }
 }
