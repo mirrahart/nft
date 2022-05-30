@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.14;
 
-import "./access/InitializableOwnable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { InitializableOwnable } from "./access/InitializableOwnable.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { ERC721Enumerable } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import { ERC721Holder } from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract MirrahArt is InitializableOwnable, ERC721Enumerable {
+contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder {
 
   /* ========== HELPER STRUCTURES ========== */
 
@@ -87,7 +90,9 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable {
     uint id, 
     Currency currency
   ) external paid(currency, 500) {
-    safeTransferFrom(address(this), msg.sender, id);
+    require(ownerOf(id) == address(this), "Token not for sale");
+    _approve(msg.sender, id);
+    transferFrom(address(this), msg.sender, id);
   }
 
   function requestStateUpdate(
@@ -129,8 +134,10 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable {
 
     modifier paid(Currency currency, uint dollarAmount) {
       address tokenAddress = tokenForCurrency(currency);
-      uint amount = dollarAmount * IERC20Metadata(tokenAddress).decimals();
-      require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount), "Payment didn't go through");
+      uint amount = dollarAmount * (10 ** IERC20Metadata(tokenAddress).decimals());
+      IERC20 token = IERC20(tokenAddress);
+      require(token.allowance(msg.sender, address(this)) >= amount, "Not enough allowance");
+      require(token.transferFrom(msg.sender, address(this), amount), "Payment didn't go through");
       _;
     }
 }

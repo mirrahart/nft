@@ -1,6 +1,11 @@
-const { ethers } = require("hardhat");
-const { waffle } = require("hardhat");
-import { expect, use } from "chai"
+const { 
+  ethers,
+  waffle
+} = require("hardhat");
+const { 
+  chai,
+  expect
+} = require('chai');
 import Big from "big.js";
 
 import { 
@@ -25,29 +30,45 @@ describe("MirrahNFT", function() {
   var usdc: MockERC20;
   var dai: MockERC20;
 
-  const [wallet] = waffle.provider.getWallets()
+  const usdcIndex = 0;
+  const daiIndex = 1;
+
+  const [wallet, denice] = waffle.provider.getWallets()
 
   before(async () => {
     ERC20Factory = await ethers.getContractFactory("MockERC20")
     MirrahArtFactory = await ethers.getContractFactory("MirrahArt")
+    await deployTokens()
 })
 
   beforeEach(async () => {
-    await deployTokens()
   });
 
   async function deployTokens() {
+    
     usdc = await ERC20Factory.deploy("USDC", "USDC", usdcDecimals)
-    await usdc.mint(wallet.address, initialTokens.mul(Math.pow(10, usdcDecimals)).toFixed())
     dai = await ERC20Factory.deploy("DAI", "DAI", daiDecimals)
-    await dai.mint(wallet.address, initialTokens.mul(Math.pow(10, daiDecimals)).toFixed())
+
     mirrah = await MirrahArtFactory.deploy(
       artist,
       developer,
       usdc.address,
       dai.address
     )
+    console.log("Deployer address: " + wallet.address)
+    console.log("Denice address: " + denice.address)
     console.log("Mirrah address: " + mirrah.address)
+  }
+
+  async function topUpDenice() {
+    let usdcAmount = initialTokens.mul(Math.pow(10, usdcDecimals)).toFixed()
+    let daiAmount = initialTokens.mul(Math.pow(10, daiDecimals)).toFixed()
+
+    await usdc.mint(denice.address, usdcAmount)
+    await dai.mint(denice.address, daiAmount)
+
+    await usdc.connect(denice).approve(mirrah.address, usdcAmount)
+    await dai.connect(denice).approve(mirrah.address, daiAmount)
   }
 
   it("Correct number of initial tokens is minted", async function() {
@@ -56,15 +77,29 @@ describe("MirrahNFT", function() {
   })
 
   async function checkBalances() {
-    const daiBalance = await dai.balanceOf(wallet.address)
-    console.log("Dai balance: " + daiBalance)
-    const usdcBalance = await usdc.balanceOf(wallet.address)
-    console.log("USDC balance: " + usdcBalance)
+    const daiBalance = await dai.balanceOf(mirrah.address)
+    console.log("Mirrah Dai balance: " + daiBalance)
+    const usdcBalance = await usdc.balanceOf(mirrah.address)
+    console.log("Mirrah USDC balance: " + usdcBalance)
   }
 
-  it("Correct number of initial tokens is minted", async function() {
-    await mirrah.attach(wallet.address).buyFromContract(0, 0)
+  it("Token indices are correct", async function() {
+    expect(await mirrah.tokenForCurrency(usdcIndex)).to.eq(usdc.address)
+    expect(await mirrah.tokenForCurrency(daiIndex)).to.eq(dai.address)
+  })
+
+  it("Token buy works with both currencies", async function() {
+    await topUpDenice()
+    const buyWithUsdc = await mirrah.connect(denice).buyFromContract(usdcIndex, 0)
+    const buyWithDai = await mirrah.connect(denice).buyFromContract(daiIndex, 1)
+
+    expect(await mirrah.ownerOf(0)).to.eq(denice.address)
+    expect(await mirrah.ownerOf(1)).to.eq(denice.address)
     await checkBalances()
-    // expect(await mirrah.ownerOf(0)).to.eq(wallet.address)
+  })
+
+  it("Token buy fails when DAI allowance is insufficient", async function() {
+    const buyTransaction = mirrah.connect(denice).buyFromContract(5, 0)
+    expect(buyTransaction).to.be.revertedWith('Not enough allowance')
   })
 })
