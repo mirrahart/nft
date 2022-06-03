@@ -23,15 +23,19 @@ describe("MirrahNFT", function() {
   const developer = "0x3eb6Bf5B7AC2B683c787f7aac59683A8d05d885d"
 
   const initialTokens = Big(10_000)
+ 
   const usdcDecimals = 6
   const daiDecimals = 18
+  const usdtDecimals = 6
 
   var mirrah: MirrahArt;
   var usdc: MockERC20;
   var dai: MockERC20;
+  var usdt: MockERC20;
 
   const usdcIndex = 0;
   const daiIndex = 1;
+  const usdtIndex = 2;
 
   const [wallet, denice] = waffle.provider.getWallets()
 
@@ -48,12 +52,14 @@ describe("MirrahNFT", function() {
     
     usdc = await ERC20Factory.deploy("USDC", "USDC", usdcDecimals)
     dai = await ERC20Factory.deploy("DAI", "DAI", daiDecimals)
+    usdt = await ERC20Factory.deploy("USDT", "USDT", usdtDecimals)
 
     mirrah = await MirrahArtFactory.deploy(
       artist,
       developer,
       usdc.address,
-      dai.address
+      dai.address,
+      usdt.address
     )
     console.log("Deployer address: " + wallet.address)
     console.log("Denice address: " + denice.address)
@@ -63,12 +69,15 @@ describe("MirrahNFT", function() {
   async function topUpDenice() {
     let usdcAmount = initialTokens.mul(Math.pow(10, usdcDecimals)).toFixed()
     let daiAmount = initialTokens.mul(Math.pow(10, daiDecimals)).toFixed()
+    let usdtAmount = initialTokens.mul(Math.pow(10, usdtDecimals)).toFixed()
 
     await usdc.mint(denice.address, usdcAmount)
     await dai.mint(denice.address, daiAmount)
+    await usdt.mint(denice.address, usdtAmount)
 
     await usdc.connect(denice).approve(mirrah.address, usdcAmount)
     await dai.connect(denice).approve(mirrah.address, daiAmount)
+    await usdt.connect(denice).approve(mirrah.address, usdtAmount)
   }
 
   it("Correct number of initial tokens is minted", async function() {
@@ -86,15 +95,18 @@ describe("MirrahNFT", function() {
   it("Token indices are correct", async function() {
     expect(await mirrah.tokenForCurrency(usdcIndex)).to.eq(usdc.address)
     expect(await mirrah.tokenForCurrency(daiIndex)).to.eq(dai.address)
+    expect(await mirrah.tokenForCurrency(usdtIndex)).to.eq(usdt.address)
   })
 
-  it("Token buy works with both currencies", async function() {
+  it("Token buy works with all currencies", async function() {
     await topUpDenice()
     const buyWithUsdc = await mirrah.connect(denice).buyFromContract(usdcIndex, 0)
     const buyWithDai = await mirrah.connect(denice).buyFromContract(daiIndex, 1)
+    const buyWithUsdt = await mirrah.connect(denice).buyFromContract(usdtIndex, 2)
 
     expect(await mirrah.ownerOf(0)).to.eq(denice.address)
     expect(await mirrah.ownerOf(1)).to.eq(denice.address)
+    expect(await mirrah.ownerOf(2)).to.eq(denice.address)
     await checkBalances()
   })
 

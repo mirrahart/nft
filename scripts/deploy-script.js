@@ -9,9 +9,12 @@ const usdcEthereum = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 const usdcRinkeby = "0x7f3a66bd60ec7a0fdb95fadbaa6648f512ce2f26"
 const daiEthereum = "0x6b175474e89094c44da98b954eedeac495271d0f"
 const daiRinkeby = "0x01d07d78cdb9535948eaef2fd1093be0e5f07186"
+const usdtEthereum = "0xdac17f958d2ee523a2206206994597c13d831ec7"
+const usdtRinkeby = "0xa1d71b56f9651e72075bc32953fb91e1439c90a0"
 
 const usdc = usdcRinkeby
 const dai = daiRinkeby
+const usdt = usdtRinkeby
 
 async function main() {
   const NFT = await hre.ethers.getContractFactory("MirrahArt")
@@ -20,6 +23,7 @@ async function main() {
     developer,
     usdc,
     dai,
+    usdt,
   )
   await nft.deployed()
   console.log("NFT deployed to: ", nft.address)

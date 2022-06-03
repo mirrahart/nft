@@ -15,7 +15,8 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder {
 
   enum Currency { 
     USDC, 
-    DAI
+    DAI,
+    USDT
   }
 
   enum Stage { 
@@ -32,6 +33,7 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder {
   address public developer;
   address public usdc;
   address public dai;
+  address public usdt;
 
   /* ========== STATE VARIABLES ========== */
 
@@ -43,13 +45,15 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder {
     address artist_,
     address developer_,
     address usdc_,
-    address dai_
+    address dai_,
+    address usdt_
   ) ERC721("TestMirrahArt", "TestMirrah") {
     initOwner(msg.sender);
     artist = artist_;
     developer = developer_;
     usdc = usdc_;
     dai = dai_;
+    usdt = usdt_;
     mintMultiple(address(this), 30);
   }
 
@@ -60,6 +64,8 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder {
       return usdc;
     } else if (currency == Currency.DAI) {
       return dai;
+    } else if (currency == Currency.USDT) {
+      return usdt;
     }
   }
 
