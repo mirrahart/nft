@@ -22,7 +22,7 @@ describe("MirrahNFT", function() {
   const artist = "0x709Ba910aF125285BC99d4D49e4381D49b3A4874"
   const developer = "0x3eb6Bf5B7AC2B683c787f7aac59683A8d05d885d"
 
-  const initialTokens = Big(10_000)
+  const initialTokens = Big(100_000)
  
   const usdcDecimals = 6
   const daiDecimals = 18
