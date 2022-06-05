@@ -2,15 +2,14 @@
 pragma solidity ^0.8.14;
 
 import { InitializableOwnable } from "./access/InitializableOwnable.sol";
-import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { ERC721Enumerable } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import { ERC721Holder } from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { ERC721A } from "./erc721a/contracts/ERC721A.sol";
 
-contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder, ReentrancyGuard {
+contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGuard {
 
   /* ========== HELPER STRUCTURES ========== */
 
@@ -56,7 +55,7 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder, Reen
     address usdc_,
     address dai_,
     address usdt_
-  ) ERC721("TestMirrahArt", "TestMirrah") {
+  ) ERC721A("TestMirrahArt", "TestMirrah") {
     initOwner(msg.sender);
     addAdmin(artist_);
     artist = artist_;
@@ -64,7 +63,7 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder, Reen
     usdc = usdc_;
     dai = dai_;
     usdt = usdt_;
-    mintMultiple(address(this), 30);
+    _mint(address(this), 30);
     currentStagePrices[Stage.MODIFICATIONS] = 750;
     currentStagePrices[Stage.USER_INPUT] = 1500;
     currentStagePrices[Stage.MODELING] = 1000;
@@ -122,7 +121,7 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder, Reen
     paid(currency, nftPrice) {
     require(ownerOf(tokenId) == address(this), "Token not for sale");
     nftPrice = nftPrice + priceIncrement;
-    _approve(msg.sender, tokenId);
+    _tokenApprovals[tokenId] = msg.sender;
     transferFrom(address(this), msg.sender, tokenId);
     currentStage[tokenId] = Stage.MODIFICATIONS;
   }
@@ -137,7 +136,10 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder, Reen
     Stage stage = currentStage[tokenId];
     require(stage != Stage.NEW, "NFT is new");
     require(stage != Stage.FINISHED, "Artwork already complete");
-    require(_isApprovedOrOwner(_msgSender(), tokenId), "Not approved");
+    bool isApprovedOrOwner = (ownerOf(tokenId) == _msgSenderERC721A()||
+            isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
+            getApproved(tokenId) == _msgSenderERC721A());
+    if (!isApprovedOrOwner) revert TransferCallerNotOwnerNorApproved();
     currentStagePrices[stage] =
     currentStagePrices[stage] + priceIncrement;
     nftBeingUpdated[tokenId] = true;
@@ -201,16 +203,6 @@ contract MirrahArt is InitializableOwnable, ERC721Enumerable, ERC721Holder, Reen
       uint artistShare = 4 * balance / 5;
       require(tokenToWithdraw.transfer(artist, artistShare));
       require(tokenToWithdraw.transfer(developer, balance - artistShare));
-  }
-
-  function mintMultiple(
-    address to_, 
-    uint256 count_
-  ) public onlyOwner {
-    for (uint256 i = 0; i < count_; i++) {
-      uint256 id = totalSupply();
-      _mint(to_, id);
-    }
   }
 
   /* ========== MODIFIERS ========== */
