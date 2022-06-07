@@ -90,25 +90,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     }
   }
 
-  function tokenURI(uint256 tokenId) 
-    public
-    view
-    virtual
-    override
-    returns (string memory) {
-    require(_exists(tokenId), "ERC721Metadata: No token");
-    Stage stage = currentStage[tokenId];
-    string memory uri = 
-      string(
-          abi.encodePacked(
-              'https://s.nft.mirrah.art/one/metadata/',
-              Strings.toString(tokenId),
-              '/',
-              stage,
-              '.json'
-          )
-      );
-    return uri;
+  function _baseURI() internal view virtual override returns (string memory) {
+    return "https://s.nft.mirrah.art/one/metadata/";
   }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
@@ -126,23 +109,24 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     currentStage[tokenId] = Stage.MODIFICATIONS;
   }
 
+  function requestModification(
+    uint256 tokenId,
+    Currency currency
+  ) external 
+    nonReentrant
+    paid(currency, currentStagePrices[currentStage[tokenId]])
+    approvedForAction(tokenId) {
+      nftBeingUpdated[tokenId] = true;
+  }
+
   function requestStateUpdate(
     uint256 tokenId,
     Currency currency
   ) external 
-    nonReentrant 
-    openForInteractions(tokenId)
-    paid(currency, currentStagePrices[currentStage[tokenId]]) {
-    Stage stage = currentStage[tokenId];
-    require(stage != Stage.NEW, "NFT is new");
-    require(stage != Stage.FINISHED, "Artwork already complete");
-    bool isApprovedOrOwner = (ownerOf(tokenId) == _msgSenderERC721A()||
-            isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
-            getApproved(tokenId) == _msgSenderERC721A());
-    if (!isApprovedOrOwner) revert TransferCallerNotOwnerNorApproved();
-    currentStagePrices[stage] =
-    currentStagePrices[stage] + priceIncrement;
-    nftBeingUpdated[tokenId] = true;
+    nonReentrant
+    paid(currency, currentStagePrices[currentStage[tokenId]])
+    approvedForAction(tokenId) {
+      nftBeingUpdated[tokenId] = true;
   }
 
   /* ========== RESTRICTED FUNCTIONS ========== */
@@ -207,8 +191,16 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
 
   /* ========== MODIFIERS ========== */
 
-  modifier openForInteractions(uint tokenId) {
+  modifier approvedForAction(uint tokenId) {
     require(!nftBeingUpdated[tokenId], "Artist works on NFT");
+    Stage stage = currentStage[tokenId];
+    require(stage != Stage.NEW, "NFT is new");
+    require(stage != Stage.FINISHED, "Artwork already complete");
+    bool isApprovedOrOwner = (ownerOf(tokenId) == _msgSenderERC721A()||
+            isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
+            getApproved(tokenId) == _msgSenderERC721A());
+    if (!isApprovedOrOwner) revert TransferCallerNotOwnerNorApproved();
+    currentStagePrices[stage] = currentStagePrices[stage] + priceIncrement;
     _;
   }
 

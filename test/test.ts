@@ -99,6 +99,12 @@ describe("MirrahNFT", function() {
   })
 
   it("Token buy works with all currencies", async function() {
+    const uri = await mirrah.tokenURI(0)
+    console.log(uri)
+    expect(uri).to.eq("https://s.nft.mirrah.art/one/metadata/0")
+  })
+
+  it("Token buy works with all currencies", async function() {
     await topUpDenice()
     const buyWithUsdc = await mirrah.connect(denice).buyFromContract(usdcIndex, 0)
     const buyWithDai = await mirrah.connect(denice).buyFromContract(daiIndex, 1)
