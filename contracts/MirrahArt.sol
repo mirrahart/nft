@@ -21,13 +21,10 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
 
   enum Stage { 
     NEW,
-    MODIFICATIONS,
-    USER_INPUT,
     MODELING,
     FIRING,
     COLORING,
-    SHIPPING,
-    DESTROY,
+    PRESHIPPING,
     FINISHED
   }
 
@@ -54,8 +51,11 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   /* ========== STATE VARIABLES ========== */
 
   uint16 public nftPrice = 10000;
+  uint16 public modificationPrice = 750;
+  uint16 public userInputPrice = 1500;
+  uint16 public shippingPrice = 1500;
+  uint16 public destroyPrice = 3000;
   mapping (uint256 => NftDetails) public nftDetails;
-  mapping (Stage => uint16) public currentStagePrices;
 
   /* ========== CONSTRUCTOR ========== */
 
@@ -74,20 +74,25 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     dai = dai_;
     usdt = usdt_;
     _mint(address(this), 30);
-    currentStagePrices[Stage.MODIFICATIONS] = 750;
-    currentStagePrices[Stage.USER_INPUT] = 1500;
-    currentStagePrices[Stage.MODELING] = 1000;
-    currentStagePrices[Stage.FIRING] = 500;
-    currentStagePrices[Stage.COLORING] = 1000;
-    currentStagePrices[Stage.SHIPPING] = 1500;
-    currentStagePrices[Stage.DESTROY] = 3000;
     transferOwnership(developer_);
   }
 
   /* ========== VIEWS ========== */
 
-  function stagePrice(Stage stage) public view returns (uint16 price) {
-    return currentStagePrices[stage] + priceIncrement;
+  function nextStage(
+    Stage stage
+  ) public pure returns (Stage next) {
+    if (stage == Stage.NEW) {
+      return Stage.MODELING;
+    } else if (stage == Stage.MODELING) {
+      return Stage.FIRING;
+    } else if (stage == Stage.FIRING) {
+      return Stage.COLORING;
+    } else if (stage == Stage.COLORING) {
+      return Stage.PRESHIPPING;
+    } else if (stage == Stage.PRESHIPPING) {
+      return Stage.FINISHED;
+    }
   }
 
   function tokenForCurrency(Currency currency) public view returns (address currencyAddress) {
@@ -112,7 +117,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     nftPrice = nftPrice + priceIncrement;
     _tokenApprovals[tokenId] = msg.sender;
     transferFrom(address(this), msg.sender, tokenId);
-    nftDetails[tokenId].stage = Stage.MODIFICATIONS;
+    nftDetails[tokenId].stage = Stage.NEW;
   }
 
   function requestStateUpdate(
@@ -120,7 +125,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     Currency currency
   ) external 
     nonReentrant
-    paid(currency, currentStagePrices[nftDetails[tokenId].stage])
+    paid(currency, 1000)
     approvedForAction(tokenId) {
       nftDetails[tokenId].nftBeingUpdated = true;
   }
@@ -132,8 +137,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     string memory input
   ) external 
     nonReentrant
-    paid(currency, currentStagePrices[Stage.USER_INPUT])
+    paid(currency, userInputPrice)
     approvedForAction(tokenId) {
+      userInputPrice += priceIncrement;
       if (slot == 0) {
         nftDetails[tokenId].userInputOne = input;
       } else if (slot == 1) {
@@ -153,8 +159,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint8 choise
   ) external 
     nonReentrant
-    paid(currency, currentStagePrices[Stage.MODIFICATIONS])
+    paid(currency, modificationPrice)
     approvedForAction(tokenId) {
+      modificationPrice += priceIncrement;
       if (slot == 0) {
         nftDetails[tokenId].modificationOne = choise;
       } else if (slot == 1) {
@@ -173,8 +180,13 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     bool ship
   ) external 
     nonReentrant
-    paid(currency, ship ? currentStagePrices[Stage.SHIPPING] : currentStagePrices[Stage.DESTROY])
+    paid(currency, ship ? shippingPrice : destroyPrice)
     approvedForAction(tokenId) {
+      if (ship) {
+        shippingPrice += priceIncrement;
+      } else {
+        destroyPrice += priceIncrement;
+      }
       nftDetails[tokenId].nftBeingUpdated = true;
   }
 
@@ -183,26 +195,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   function moveNftToNextStage(
     uint256 tokenId
   ) external onlyAdminOrOwner {
-    Stage stage = nftDetails[tokenId].stage;
-    if (stage == Stage.MODIFICATIONS) {
-      nftDetails[tokenId].stage = Stage.USER_INPUT;
-    } else if (stage == Stage.USER_INPUT) {
-      nftDetails[tokenId].stage = Stage.MODELING;
-    } else if (stage == Stage.USER_INPUT) {
-      nftDetails[tokenId].stage = Stage.MODELING;
-    } else if (stage == Stage.MODELING) {
-      nftDetails[tokenId].stage = Stage.FIRING;
-    } else if (stage == Stage.FIRING) {
-      nftDetails[tokenId].stage = Stage.COLORING;
-    } else if (stage == Stage.COLORING) {
-      nftDetails[tokenId].stage = Stage.SHIPPING;
-    } else if (stage == Stage.SHIPPING) {
-      nftDetails[tokenId].stage = Stage.FINISHED;
-    } else if (stage == Stage.DESTROY) {
-      nftDetails[tokenId].stage = Stage.FINISHED;
-    } else {
-      return;
-    }
+    nftDetails[tokenId].stage = nextStage(nftDetails[tokenId].stage);
     nftDetails[tokenId].nftBeingUpdated = false;
   }
 
@@ -255,7 +248,6 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
             isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
             getApproved(tokenId) == _msgSenderERC721A());
     if (!isApprovedOrOwner) revert TransferCallerNotOwnerNorApproved();
-    currentStagePrices[stage] = currentStagePrices[stage] + priceIncrement;
     _;
   }
 
