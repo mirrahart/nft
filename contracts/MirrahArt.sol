@@ -86,7 +86,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
 
   /* ========== VIEWS ========== */
 
-  function nextStagePrice(Stage stage) public view returns (uint16 price) {
+  function stagePrice(Stage stage) public view returns (uint16 price) {
     return currentStagePrices[stage] + priceIncrement;
   }
 
@@ -98,10 +98,6 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     } else if (currency == Currency.USDT) {
       return usdt;
     }
-  }
-
-  function _baseURI() internal view virtual override returns (string memory) {
-    return "https://s.nft.mirrah.art/one/metadata/";
   }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
@@ -132,22 +128,42 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   function requestUserInput(
     uint256 tokenId,
     Currency currency,
+    uint8 slot,
     string memory input
   ) external 
     nonReentrant
     paid(currency, currentStagePrices[Stage.USER_INPUT])
     approvedForAction(tokenId) {
+      if (slot == 0) {
+        nftDetails[tokenId].userInputOne = input;
+      } else if (slot == 1) {
+        nftDetails[tokenId].userInputTwo = input;
+      } else if (slot == 1) {
+        nftDetails[tokenId].userInputThree = input;
+      } else {
+        revert();
+      }
       nftDetails[tokenId].nftBeingUpdated = true;
   }
 
   function requestModification(
     uint256 tokenId,
     Currency currency,
+    uint8 slot,
     uint8 choise
   ) external 
     nonReentrant
     paid(currency, currentStagePrices[Stage.MODIFICATIONS])
     approvedForAction(tokenId) {
+      if (slot == 0) {
+        nftDetails[tokenId].modificationOne = choise;
+      } else if (slot == 1) {
+        nftDetails[tokenId].modificationTwo = choise;
+      } else if (slot == 1) {
+        nftDetails[tokenId].modificationThree = choise;
+      } else {
+        revert();
+      }
       nftDetails[tokenId].nftBeingUpdated = true;
   }
 
@@ -220,6 +236,12 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
       uint artistShare = 4 * balance / 5;
       require(tokenToWithdraw.transfer(artist, artistShare));
       require(tokenToWithdraw.transfer(developer, balance - artistShare));
+  }
+
+  /* ========== INTERNAL ========== */
+
+  function _baseURI() internal view virtual override returns (string memory) {
+    return "https://s.nft.mirrah.art/one/metadata/";
   }
 
   /* ========== MODIFIERS ========== */
