@@ -13,13 +13,13 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
 
   /* ========== HELPER STRUCTURES ========== */
 
-  enum Currency { 
+  enum Currency {
     USDC, 
     DAI,
     USDT
   }
 
-  enum Stage { 
+  enum Stage {
     NEW,
     MODELING,
     FIRING,
@@ -39,6 +39,19 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     string userInputThree;
   }
 
+  struct Prices {
+    uint16 nft;
+    uint16 nftIncrement;
+    uint16 modificationIncrement;
+    uint16 modification;
+    uint16 userInput;
+    uint16 modeling;
+    uint16 firing;
+    uint16 coloring;
+    uint16 shipping;
+    uint16 destroy;
+  }
+
   /* ========== CONSTANTS ========== */
 
   address public artist;
@@ -46,15 +59,21 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   address public usdc;
   address public dai;
   address public usdt;
-  uint16 public priceIncrement = 250;
 
   /* ========== STATE VARIABLES ========== */
 
-  uint16 public nftPrice = 10000;
-  uint16 public modificationPrice = 750;
-  uint16 public userInputPrice = 1500;
-  uint16 public shippingPrice = 1500;
-  uint16 public destroyPrice = 3000;
+  Prices public prices = Prices({
+    nft: 10000,
+    nftIncrement: 250,
+    modificationIncrement: 100,
+    modification: 750,
+    userInput: 1500,
+    modeling: 750,
+    firing: 500,
+    coloring: 1000,
+    shipping: 1500,
+    destroy: 3000
+  });
   mapping (uint256 => NftDetails) public nftDetails;
 
   /* ========== CONSTRUCTOR ========== */
@@ -105,6 +124,21 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     }
   }
 
+  function nextStagePrice(uint256 tokenId) public view returns (uint16 price) {
+    Stage stage = nextStage(nftDetails[tokenId].stage);
+    if (stage == Stage.NEW) {
+      return 0;
+    } else if (stage == Stage.MODELING) {
+      return 750;
+    } else if (stage == Stage.FIRING) {
+      return 500;
+    } else if (stage == Stage.COLORING) {
+      return 1000;
+    } else if (stage == Stage.PRESHIPPING) {
+      return 0;
+    }
+  }
+
   /* ========== MUTATIVE FUNCTIONS ========== */
 
   function buyFromContract(
@@ -112,9 +146,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     Currency currency
   ) external
     nonReentrant
-    paid(currency, nftPrice) {
+    paid(currency, prices.nft) {
     require(ownerOf(tokenId) == address(this), "Token not for sale");
-    nftPrice = nftPrice + priceIncrement;
+    prices.nft = prices.nft + prices.nftIncrement;
     _tokenApprovals[tokenId] = msg.sender;
     transferFrom(address(this), msg.sender, tokenId);
     nftDetails[tokenId].stage = Stage.NEW;
@@ -123,9 +157,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   function requestStateUpdate(
     uint256 tokenId,
     Currency currency
-  ) external 
+  ) external
     nonReentrant
-    paid(currency, 1000)
+    paid(currency, nextStagePrice(tokenId))
     approvedForAction(tokenId) {
       nftDetails[tokenId].nftBeingUpdated = true;
   }
@@ -135,11 +169,11 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     Currency currency,
     uint8 slot,
     string memory input
-  ) external 
+  ) external
     nonReentrant
-    paid(currency, userInputPrice)
+    paid(currency, prices.userInput)
     approvedForAction(tokenId) {
-      userInputPrice += priceIncrement;
+      prices.userInput += prices.modificationIncrement;
       if (slot == 0) {
         nftDetails[tokenId].userInputOne = input;
       } else if (slot == 1) {
@@ -157,11 +191,11 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     Currency currency,
     uint8 slot,
     uint8 choise
-  ) external 
+  ) external
     nonReentrant
-    paid(currency, modificationPrice)
+    paid(currency, prices.modification)
     approvedForAction(tokenId) {
-      modificationPrice += priceIncrement;
+      prices.modification += prices.modificationIncrement;
       if (slot == 0) {
         nftDetails[tokenId].modificationOne = choise;
       } else if (slot == 1) {
@@ -178,14 +212,14 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint256 tokenId,
     Currency currency,
     bool ship
-  ) external 
+  ) external
     nonReentrant
-    paid(currency, ship ? shippingPrice : destroyPrice)
+    paid(currency, ship ? prices.shipping : prices.destroy)
     approvedForAction(tokenId) {
       if (ship) {
-        shippingPrice += priceIncrement;
+        prices.shipping += prices.modificationIncrement;
       } else {
-        destroyPrice += priceIncrement;
+        prices.destroy += prices.modificationIncrement;
       }
       nftDetails[tokenId].nftBeingUpdated = true;
   }
@@ -242,7 +276,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   modifier approvedForAction(uint tokenId) {
     require(!nftDetails[tokenId].nftBeingUpdated, "Artist works on NFT");
     Stage stage = nftDetails[tokenId].stage;
-    require(stage != Stage.NEW, "NFT is new");
+    // require(stage != Stage.NEW, "NFT is new");
     require(stage != Stage.FINISHED, "Artwork already complete");
     bool isApprovedOrOwner = (ownerOf(tokenId) == _msgSenderERC721A()||
             isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
