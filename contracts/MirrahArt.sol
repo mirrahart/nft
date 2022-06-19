@@ -127,16 +127,14 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   }
 
   function nextStagePrice(uint256 tokenId) public view returns (uint16 price) {
-    Stage stage = nextStage(nftDetails[tokenId].stage);
-    if (stage == Stage.NEW) {
-      return 0;
-    } else if (stage == Stage.MODELING) {
-      return 750;
-    } else if (stage == Stage.FIRING) {
-      return 500;
-    } else if (stage == Stage.COLORING) {
-      return 1000;
-    } else if (stage == Stage.PRESHIPPING) {
+    Stage stageNext = nextStage(nftDetails[tokenId].stage);
+    if (stageNext == Stage.MODELING) {
+      return prices.modeling;
+    } else if (stageNext == Stage.FIRING) {
+      return prices.firing;
+    } else if (stageNext == Stage.COLORING) {
+      return prices.coloring;
+    } else {
       return 0;
     }
   }
@@ -147,8 +145,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint tokenId,
     Currency currency
   ) external
-    nonReentrant
-    paid(currency, prices.nft) {
+    nonReentrant {
+    pay(currency, prices.nft);
     require(ownerOf(tokenId) == address(this) && tokenId <= prices.maxTokenIndexForSale, "Token not for sale");
     prices.nft = prices.nft + prices.nftIncrement;
     _tokenApprovals[tokenId] = msg.sender;
@@ -160,9 +158,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint256 tokenId,
     Currency currency
   ) external
-    nonReentrant
-    paid(currency, nextStagePrice(tokenId))
-    approvedForAction(tokenId) {
+    nonReentrant {
+      checkIfApprovedForAction(tokenId);
+      pay(currency, nextStagePrice(tokenId));
       nftDetails[tokenId].nftBeingUpdated = true;
   }
 
@@ -172,9 +170,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint8 slot,
     string memory input
   ) external
-    nonReentrant
-    paid(currency, prices.userInput)
-    approvedForAction(tokenId) {
+    nonReentrant {
+      checkIfApprovedForAction(tokenId);
+      pay(currency, prices.userInput);
       prices.userInput += prices.modificationIncrement;
       if (slot == 0) {
         nftDetails[tokenId].userInputOne = input;
@@ -194,9 +192,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint8 choise2,
     uint8 choise3
   ) external
-    nonReentrant
-    paid(currency, prices.modification)
-    approvedForAction(tokenId) {
+    nonReentrant {
+      checkIfApprovedForAction(tokenId);
+      pay(currency, prices.modification);
       prices.modification += prices.modificationIncrement;
       nftDetails[tokenId].modificationOne = choise1;
       nftDetails[tokenId].modificationTwo = choise2;
@@ -208,9 +206,9 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     Currency currency,
     bool ship
   ) external
-    nonReentrant
-    paid(currency, ship ? prices.shipping : prices.destroy)
-    approvedForAction(tokenId) {
+    nonReentrant {
+      checkIfApprovedForAction(tokenId);
+      pay(currency, ship ? prices.shipping : prices.destroy);
       if (ship) {
         prices.shipping += prices.modificationIncrement;
       } else {
@@ -272,9 +270,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     return "https://s.nft.mirrah.art/one/metadata/";
   }
 
-  /* ========== MODIFIERS ========== */
-
-  modifier approvedForAction(uint tokenId) {
+  function checkIfApprovedForAction(uint tokenId) internal view {
     require(!nftDetails[tokenId].nftBeingUpdated, "Artist works on NFT");
     Stage stage = nftDetails[tokenId].stage;
     // require(stage != Stage.NEW, "NFT is new");
@@ -283,15 +279,13 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
             isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
             getApproved(tokenId) == _msgSenderERC721A());
     if (!isApprovedOrOwner) revert TransferCallerNotOwnerNorApproved();
-    _;
   }
 
-  modifier paid(Currency currency, uint16 dollarAmount) {
+  function pay(Currency currency, uint16 dollarAmount) internal {
     address tokenAddress = tokenForCurrency(currency);
     uint amount = dollarAmount * (10 ** IERC20Metadata(tokenAddress).decimals());
     IERC20 token = IERC20(tokenAddress);
     require(token.allowance(msg.sender, address(this)) >= amount, "Not enough allowance");
     require(token.transferFrom(msg.sender, address(this), amount), "Payment didn't go through");
-    _;
   }
 }
