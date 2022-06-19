@@ -40,8 +40,6 @@ describe("MirrahNFT", function() {
   const [wallet, denice] = waffle.provider.getWallets()
 
   before(async () => {
-    ERC20Factory = await ethers.getContractFactory("MockERC20")
-    MirrahArtFactory = await ethers.getContractFactory("MirrahArt")
     await deployTokens()
 })
 
@@ -49,7 +47,10 @@ describe("MirrahNFT", function() {
   });
 
   async function deployTokens() {
-    
+
+    ERC20Factory = await ethers.getContractFactory("MockERC20")
+    MirrahArtFactory = await ethers.getContractFactory("MirrahArt")
+
     usdc = await ERC20Factory.deploy("USDC", "USDC", usdcDecimals)
     dai = await ERC20Factory.deploy("DAI", "DAI", daiDecimals)
     usdt = await ERC20Factory.deploy("USDT", "USDT", usdtDecimals)
@@ -83,6 +84,8 @@ describe("MirrahNFT", function() {
   it("Correct number of initial tokens is minted", async function() {
     const count = await mirrah.balanceOf(mirrah.address)
     expect(count).to.eq(30)
+    expect(await mirrah.ownerOf(29)).to.eq(mirrah.address)
+    await expect(mirrah.ownerOf(30)).to.be.revertedWith('OwnerQueryForNonexistentToken')
   })
 
   async function checkBalances() {
@@ -98,7 +101,7 @@ describe("MirrahNFT", function() {
     expect(await mirrah.tokenForCurrency(usdtIndex)).to.eq(usdt.address)
   })
 
-  it("Token buy works with all currencies", async function() {
+  it("Metadata URLs are correct", async function() {
     const uri = await mirrah.tokenURI(0)
     console.log(uri)
     expect(uri).to.eq("https://s.nft.mirrah.art/one/metadata/0")
@@ -106,14 +109,26 @@ describe("MirrahNFT", function() {
 
   it("Token buy works with all currencies", async function() {
     await topUpDenice()
-    const buyWithUsdc = await mirrah.connect(denice).buyFromContract(usdcIndex, 0)
-    const buyWithDai = await mirrah.connect(denice).buyFromContract(daiIndex, 1)
-    const buyWithUsdt = await mirrah.connect(denice).buyFromContract(usdtIndex, 2)
+    const buyWithUsdc = await mirrah.connect(denice).buyFromContract(2, usdcIndex)
+    const buyWithDai = await mirrah.connect(denice).buyFromContract(0, daiIndex)
+    const buyWithUsdt = await mirrah.connect(denice).buyFromContract(1, usdtIndex)
 
     expect(await mirrah.ownerOf(0)).to.eq(denice.address)
     expect(await mirrah.ownerOf(1)).to.eq(denice.address)
     expect(await mirrah.ownerOf(2)).to.eq(denice.address)
     await checkBalances()
+  })
+
+  it("Token buy fails for indices higher than max sale", async function() {
+    await topUpDenice()
+    await expect(mirrah.connect(denice).buyFromContract(5, usdtIndex)).to.be.revertedWith('Token not for sale')
+
+    await mirrah.setMaxSaleIndex(18)
+
+    const buy17 = await mirrah.connect(denice).buyFromContract(18, usdtIndex)
+    expect(await mirrah.ownerOf(18)).to.eq(denice.address)
+
+    await expect(mirrah.connect(denice).buyFromContract(19, usdtIndex)).to.be.revertedWith('Token not for sale')
   })
 
   it("Token buy fails when DAI allowance is insufficient", async function() {

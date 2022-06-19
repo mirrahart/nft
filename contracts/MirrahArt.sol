@@ -50,6 +50,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint16 coloring;
     uint16 shipping;
     uint16 destroy;
+    uint16 maxTokenIndexForSale;
   }
 
   /* ========== CONSTANTS ========== */
@@ -72,7 +73,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     firing: 500,
     coloring: 1000,
     shipping: 1500,
-    destroy: 3000
+    destroy: 3000,
+    maxTokenIndexForSale: 4
   });
   mapping (uint256 => NftDetails) public nftDetails;
 
@@ -147,7 +149,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   ) external
     nonReentrant
     paid(currency, prices.nft) {
-    require(ownerOf(tokenId) == address(this), "Token not for sale");
+    require(ownerOf(tokenId) == address(this) && tokenId <= prices.maxTokenIndexForSale, "Token not for sale");
     prices.nft = prices.nft + prices.nftIncrement;
     _tokenApprovals[tokenId] = msg.sender;
     transferFrom(address(this), msg.sender, tokenId);
@@ -178,34 +180,27 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
         nftDetails[tokenId].userInputOne = input;
       } else if (slot == 1) {
         nftDetails[tokenId].userInputTwo = input;
-      } else if (slot == 1) {
+      } else if (slot == 2) {
         nftDetails[tokenId].userInputThree = input;
       } else {
         revert();
       }
-      nftDetails[tokenId].nftBeingUpdated = true;
   }
 
   function requestModification(
     uint256 tokenId,
     Currency currency,
-    uint8 slot,
-    uint8 choise
+    uint8 choise1,
+    uint8 choise2,
+    uint8 choise3
   ) external
     nonReentrant
     paid(currency, prices.modification)
     approvedForAction(tokenId) {
       prices.modification += prices.modificationIncrement;
-      if (slot == 0) {
-        nftDetails[tokenId].modificationOne = choise;
-      } else if (slot == 1) {
-        nftDetails[tokenId].modificationTwo = choise;
-      } else if (slot == 1) {
-        nftDetails[tokenId].modificationThree = choise;
-      } else {
-        revert();
-      }
-      nftDetails[tokenId].nftBeingUpdated = true;
+      nftDetails[tokenId].modificationOne = choise1;
+      nftDetails[tokenId].modificationTwo = choise2;
+      nftDetails[tokenId].modificationThree = choise3;
   }
 
   function requestFinalStage(
@@ -225,6 +220,12 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   }
 
   /* ========== RESTRICTED FUNCTIONS ========== */
+
+  function setMaxSaleIndex(
+    uint16 index
+  ) external onlyAdminOrOwner {
+    prices.maxTokenIndexForSale = index;
+  }
 
   function moveNftToNextStage(
     uint256 tokenId
