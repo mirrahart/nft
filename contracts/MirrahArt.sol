@@ -37,6 +37,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     string userInputOne;
     string userInputTwo;
     string userInputThree;
+    string contactDetails;
   }
 
   struct Prices {
@@ -126,19 +127,6 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     }
   }
 
-  function nextStagePrice(uint256 tokenId) public view returns (uint16 price) {
-    Stage stageNext = nextStage(nftDetails[tokenId].stage);
-    if (stageNext == Stage.MODELING) {
-      return prices.modeling;
-    } else if (stageNext == Stage.FIRING) {
-      return prices.firing;
-    } else if (stageNext == Stage.COLORING) {
-      return prices.coloring;
-    } else {
-      return 0;
-    }
-  }
-
   /* ========== MUTATIVE FUNCTIONS ========== */
 
   function buyFromContract(
@@ -146,8 +134,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     Currency currency
   ) external
     nonReentrant {
-    pay(currency, prices.nft);
     require(ownerOf(tokenId) == address(this) && tokenId <= prices.maxTokenIndexForSale, "Token not for sale");
+    pay(currency, prices.nft);
     prices.nft = prices.nft + prices.nftIncrement;
     _tokenApprovals[tokenId] = msg.sender;
     transferFrom(address(this), msg.sender, tokenId);
@@ -160,7 +148,21 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   ) external
     nonReentrant {
       checkIfApprovedForAction(tokenId);
-      pay(currency, nextStagePrice(tokenId));
+      Stage stageNext = nextStage(nftDetails[tokenId].stage);
+      uint16 currentPrice;
+      if (stageNext == Stage.MODELING) {
+        currentPrice = prices.modeling;
+        prices.modeling += prices.modificationIncrement;
+      } else if (stageNext == Stage.FIRING) {
+        currentPrice = prices.firing;
+        prices.modeling += prices.modificationIncrement;
+      } else if (stageNext == Stage.COLORING) {
+        currentPrice = prices.coloring;
+        prices.modeling += prices.modificationIncrement;
+      } else {
+        revert();
+      }
+      pay(currency, currentPrice);
       nftDetails[tokenId].nftBeingUpdated = true;
   }
 
@@ -204,7 +206,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   function requestFinalStage(
     uint256 tokenId,
     Currency currency,
-    bool ship
+    bool ship,
+    string memory optionalContactDetails
   ) external
     nonReentrant {
       checkIfApprovedForAction(tokenId);
@@ -214,6 +217,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
       } else {
         prices.destroy += prices.modificationIncrement;
       }
+      nftDetails[tokenId].contactDetails = optionalContactDetails;
       nftDetails[tokenId].nftBeingUpdated = true;
   }
 
@@ -225,19 +229,12 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     prices.maxTokenIndexForSale = index;
   }
 
-  function moveNftToNextStage(
-    uint256 tokenId
-  ) external onlyAdminOrOwner {
-    nftDetails[tokenId].stage = nextStage(nftDetails[tokenId].stage);
-    nftDetails[tokenId].nftBeingUpdated = false;
-  }
-
-  // Unlikely to be used but might be required if art process declares so
   function setNftStage(
       uint256 tokenId,
       Stage stage
     ) external onlyAdminOrOwner {
     nftDetails[tokenId].stage = stage;
+    nftDetails[tokenId].nftBeingUpdated = false;
   }
 
   function setArtistAddress(address newArtist) external onlyOwner {
@@ -273,7 +270,6 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   function checkIfApprovedForAction(uint tokenId) internal view {
     require(!nftDetails[tokenId].nftBeingUpdated, "Artist works on NFT");
     Stage stage = nftDetails[tokenId].stage;
-    // require(stage != Stage.NEW, "NFT is new");
     require(stage != Stage.FINISHED, "Artwork already complete");
     bool isApprovedOrOwner = (ownerOf(tokenId) == _msgSenderERC721A()||
             isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
