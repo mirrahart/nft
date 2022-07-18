@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.14;
+pragma solidity ^0.8.15;
 
 import { InitializableOwnable } from "./access/InitializableOwnable.sol";
 import { ERC721Holder } from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
@@ -53,6 +53,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     uint16 destroy;
     uint16 maxTokenIndexForSale;
   }
+
+  error WrongStage(Stage stage);
 
   /* ========== CONSTANTS ========== */
 
@@ -114,6 +116,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
       return Stage.PRESHIPPING;
     } else if (stage == Stage.PRESHIPPING) {
       return Stage.FINISHED;
+    } else {
+      revert WrongStage(next);
     }
   }
 
@@ -281,7 +285,6 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     address tokenAddress = tokenForCurrency(currency);
     uint amount = dollarAmount * (10 ** IERC20Metadata(tokenAddress).decimals());
     IERC20 token = IERC20(tokenAddress);
-    require(token.allowance(msg.sender, address(this)) >= amount, "Not enough allowance");
     require(token.transferFrom(msg.sender, address(this), amount), "Payment didn't go through");
   }
 }

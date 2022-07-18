@@ -6,7 +6,6 @@ const {
   chai,
   expect
 } = require('chai');
-import Big from "big.js";
 
 import { 
   MirrahArt,
@@ -22,11 +21,15 @@ describe("MirrahNFT", function() {
   const artist = "0x709Ba910aF125285BC99d4D49e4381D49b3A4874"
   const developer = "0x3eb6Bf5B7AC2B683c787f7aac59683A8d05d885d"
 
-  const initialTokens = Big(100_000)
+  const initialTokens = ethers.BigNumber.from(100_000)
  
-  const usdcDecimals = 6
-  const daiDecimals = 18
-  const usdtDecimals = 6
+  const usdcDecimalsRaw = 6
+  const daiDecimalsRaw = 18
+  const usdtDecimalsRaw = 6
+
+  const usdcDecimals = ethers.BigNumber.from(10).pow(usdcDecimalsRaw)
+  const daiDecimals = ethers.BigNumber.from(10).pow(daiDecimalsRaw)
+  const usdtDecimals = ethers.BigNumber.from(10).pow(usdtDecimalsRaw)
 
   var mirrah: MirrahArt;
   var usdc: MockERC20;
@@ -37,7 +40,7 @@ describe("MirrahNFT", function() {
   const daiIndex = 1;
   const usdtIndex = 2;
 
-  const [wallet, denice] = waffle.provider.getWallets()
+  const [deployer, denice, third] = waffle.provider.getWallets()
 
   before(async () => {
     await deployTokens()
@@ -51,9 +54,9 @@ describe("MirrahNFT", function() {
     ERC20Factory = await ethers.getContractFactory("MockERC20")
     MirrahArtFactory = await ethers.getContractFactory("MirrahArt")
 
-    usdc = await ERC20Factory.deploy("USDC", "USDC", usdcDecimals)
-    dai = await ERC20Factory.deploy("DAI", "DAI", daiDecimals)
-    usdt = await ERC20Factory.deploy("USDT", "USDT", usdtDecimals)
+    usdc = await ERC20Factory.deploy("USDC", "USDC", usdcDecimalsRaw)
+    dai = await ERC20Factory.deploy("DAI", "DAI", daiDecimalsRaw)
+    usdt = await ERC20Factory.deploy("USDT", "USDT", usdtDecimalsRaw)
 
     mirrah = await MirrahArtFactory.deploy(
       artist,
@@ -62,15 +65,15 @@ describe("MirrahNFT", function() {
       dai.address,
       usdt.address
     )
-    console.log("Deployer address: " + wallet.address)
+    console.log("Deployer address: " + deployer.address)
     console.log("Denice address: " + denice.address)
     console.log("Mirrah address: " + mirrah.address)
   }
 
   async function topUpDenice() {
-    let usdcAmount = initialTokens.mul(Math.pow(10, usdcDecimals)).toFixed()
-    let daiAmount = initialTokens.mul(Math.pow(10, daiDecimals)).toFixed()
-    let usdtAmount = initialTokens.mul(Math.pow(10, usdtDecimals)).toFixed()
+    let usdcAmount = initialTokens.mul(usdcDecimals)
+    let daiAmount = initialTokens.mul(daiDecimals)
+    let usdtAmount = initialTokens.mul(usdtDecimals)
 
     await usdc.mint(denice.address, usdcAmount)
     await dai.mint(denice.address, daiAmount)
@@ -93,6 +96,9 @@ describe("MirrahNFT", function() {
     console.log("Mirrah Dai balance: " + daiBalance)
     const usdcBalance = await usdc.balanceOf(mirrah.address)
     console.log("Mirrah USDC balance: " + usdcBalance)
+    const usdtBalance = await usdt.balanceOf(mirrah.address)
+    console.log("Mirrah USDT balance: " + usdtBalance)
+    return [ daiBalance, usdcBalance, usdtBalance ]
   }
 
   it("Token indices are correct", async function() {
@@ -107,16 +113,32 @@ describe("MirrahNFT", function() {
     expect(uri).to.eq("https://s.nft.mirrah.art/one/metadata/0")
   })
 
-  it("Token buy works with all currencies", async function() {
+  async function mirrahBalance(token: MockERC20) {
+    return await token.balanceOf(mirrah.address)
+  }
+
+  it("Token buy works with all currencies and payments received correctly", async function() {
     await topUpDenice()
-    const buyWithUsdc = await mirrah.connect(denice).buyFromContract(2, usdcIndex)
+    const pricesObject = await mirrah.prices()
+    const initialPrice = ethers.BigNumber.from(pricesObject[0])
+    const priceIncrement = ethers.BigNumber.from(pricesObject[1])
+    const initialBalances = await checkBalances()
+    // Dai - Initial price, no increments
     const buyWithDai = await mirrah.connect(denice).buyFromContract(0, daiIndex)
-    const buyWithUsdt = await mirrah.connect(denice).buyFromContract(1, usdtIndex)
+    expect((await mirrahBalance(dai)))
+      .to.eq(initialBalances[0].add(initialPrice.mul(daiDecimals)))
+    // USDC - One price increment
+    const buyWithUsdc = await mirrah.connect(denice).buyFromContract(1, usdcIndex)
+    expect((await mirrahBalance(usdc)))
+      .to.eq(initialBalances[1].add((initialPrice.add(priceIncrement)).mul(usdcDecimals)))
+    // USDT - Two price increments
+    const buyWithUsdt = await mirrah.connect(denice).buyFromContract(2, usdtIndex)
+    expect((await mirrahBalance(usdt)))
+      .to.eq(initialBalances[2].add((initialPrice.add(priceIncrement.mul(2))).mul(usdtDecimals)))
 
     expect(await mirrah.ownerOf(0)).to.eq(denice.address)
     expect(await mirrah.ownerOf(1)).to.eq(denice.address)
     expect(await mirrah.ownerOf(2)).to.eq(denice.address)
-    await checkBalances()
   })
 
   it("Token buy fails for indices higher than max sale", async function() {
@@ -131,8 +153,38 @@ describe("MirrahNFT", function() {
     await expect(mirrah.connect(denice).buyFromContract(19, usdtIndex)).to.be.revertedWith('Token not for sale')
   })
 
-  it("Token buy fails when DAI allowance is insufficient", async function() {
-    const buyTransaction = mirrah.connect(denice).buyFromContract(5, 0)
-    expect(buyTransaction).to.be.revertedWith('Not enough allowance')
+  it("Token fails if user didn't give enough allowance", async function() {
+    await usdc.connect(denice).approve(mirrah.address, 0)
+    expect(await usdc.allowance(denice.address, mirrah.address)).to.eq(0)
+    await expect(mirrah.connect(denice).buyFromContract(11, 0)).to.be.revertedWith('ERC20: insufficient allowance')
   })
+
+  it("Protected calls fail when called by non-admin", async function() {
+    await expect(mirrah.connect(denice).setMaxSaleIndex(11)).to.be.revertedWith('Not admin or owner')
+    await expect(mirrah.connect(denice).setNftStage(1, 2)).to.be.revertedWith('Not admin or owner')
+    await expect(mirrah.connect(denice).setArtistAddress(third.address)).to.be.revertedWith('Not owner')
+    await expect(mirrah.connect(denice).setDeveloperAddress(third.address)).to.be.revertedWith('Not owner')
+    await expect(mirrah.connect(denice).setStablesAddress([third.address, third.address, third.address])).to.be.revertedWith('Not owner')
+    await expect(mirrah.connect(denice).withdrawAllOfToken(dai.address)).to.be.revertedWith('Not admin or owner')
+  })
+
+  it("Withdraw increases artist and developer token balances correctly", async function() {
+    await checkIfWithdrawalGivesCorrectAmount(dai)
+    await checkIfWithdrawalGivesCorrectAmount(usdc)
+    await checkIfWithdrawalGivesCorrectAmount(usdt)
+  })
+
+  async function checkIfWithdrawalGivesCorrectAmount(token: MockERC20) {
+    console.log(await token.name() + ":")
+    const contractBalance = await token.balanceOf(mirrah.address)
+    console.log("Mirrah token balance: " + contractBalance)
+    const dev0 = await token.balanceOf(developer)
+    const art0 = await token.balanceOf(artist)
+    console.log("Dev initital: " + dev0.toString() + "\nArtist initital: " + art0.toString())
+    await mirrah.connect(deployer).withdrawAllOfToken(token.address)
+    const dev1 = await token.balanceOf(developer)
+    const art1 = await token.balanceOf(artist)
+    console.log("Dev after: " + dev1.toString() + "\nArtist after: " + art1.toString())
+    expect(dev1.add(art1).sub(dev0).sub(art0)).to.eq(contractBalance)
+  }
 })
