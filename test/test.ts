@@ -19,7 +19,6 @@ describe("MirrahNFT", function() {
   let MirrahArtFactory: any
 
   const artist = "0x709Ba910aF125285BC99d4D49e4381D49b3A4874"
-  const developer = "0x3eb6Bf5B7AC2B683c787f7aac59683A8d05d885d"
 
   const initialTokens = ethers.BigNumber.from(100_000)
  
@@ -42,9 +41,27 @@ describe("MirrahNFT", function() {
 
   const [deployer, denice, third] = waffle.provider.getWallets()
 
+  const stageByIndex: Map<number, string> = new Map([
+    [0, "NEW"],
+    [1, "MODELING"],
+    [2, "FIRING"],
+    [3, "COLORING"],
+    [4, "PREFINAL"],
+    [5, "FINISHED"]
+  ])
+
+  const indexByStageName: Map<string, number> = new Map([
+    ["NEW", 0],
+    ["MODELING", 1],
+    ["FIRING", 2],
+    ["COLORING", 3],
+    ["PREFINAL", 4],
+    ["FINISHED", 5]
+])
+
   before(async () => {
     await deployTokens()
-})
+  })
 
   beforeEach(async () => {
   });
@@ -60,7 +77,7 @@ describe("MirrahNFT", function() {
 
     mirrah = await MirrahArtFactory.deploy(
       artist,
-      developer,
+      deployer.address,
       usdc.address,
       dai.address,
       usdt.address
@@ -117,7 +134,7 @@ describe("MirrahNFT", function() {
     return await token.balanceOf(mirrah.address)
   }
 
-  it("Token buy works with all currencies and payments received correctly", async function() {
+  it.only("Token buy works with all currencies and payments received correctly", async function() {
     await topUpDenice()
     const pricesObject = await mirrah.prices()
     const initialPrice = ethers.BigNumber.from(pricesObject[0])
@@ -141,13 +158,50 @@ describe("MirrahNFT", function() {
     expect(await mirrah.ownerOf(2)).to.eq(denice.address)
   })
 
+  async function getStage(id: number): Promise<string> {
+    const details = await mirrah.nftDetails(0)
+    return stageByIndex.get(details[0] as number)!
+  }
+
+  async function getNextStage(id: number): Promise<string> {
+    const details = await mirrah.nftDetails(0)
+    const stageIndex = details[0] as number
+    const stage = stageByIndex.get(stageIndex)!
+    const nextStageIndex = await mirrah.nextStage(stageIndex)
+    return stageByIndex.get(nextStageIndex)!
+  }
+
+  async function checkCurrentStageAndRequestNext(
+    id: number, 
+    user: any,
+    currentStage: string, 
+    nextStage: string) {
+      console.log("Expected current stage: " + currentStage)
+      console.log("Expected next stage: " + nextStage)
+      expect(await getStage(id)).to.eq(currentStage)
+      expect(await getNextStage(id)).to.eq(nextStage)
+      await mirrah.connect(user).requestStateUpdate(id, daiIndex)
+      await expect(mirrah.connect(user).requestStateUpdate(id, daiIndex)).to.be.revertedWith("Artist works on NFT")
+      await mirrah.connect(deployer).setNftStage(id, indexByStageName.get(nextStage)!)
+      expect(await getStage(0)).to.eq(nextStage)
+  }
+
+  it.only("Token stages can be updated - optimistic", async function() {
+    const id = 0
+    const denisMirrah = mirrah.connect(denice)
+    await checkCurrentStageAndRequestNext(id, denice, "NEW", "MODELING")
+    await checkCurrentStageAndRequestNext(id, denice, "MODELING", "FIRING")
+    await checkCurrentStageAndRequestNext(id, denice, "FIRING", "COLORING")
+    await denisMirrah.requestFinalStage(0, daiIndex, true, "No details")
+  })
+
   it("Token buy fails for indices higher than max sale", async function() {
     await topUpDenice()
     await expect(mirrah.connect(denice).buyFromContract(5, usdtIndex)).to.be.revertedWith('Token not for sale')
 
     await mirrah.setMaxSaleIndex(18)
 
-    const buy17 = await mirrah.connect(denice).buyFromContract(18, usdtIndex)
+    const buy18 = await mirrah.connect(denice).buyFromContract(18, usdtIndex)
     expect(await mirrah.ownerOf(18)).to.eq(denice.address)
 
     await expect(mirrah.connect(denice).buyFromContract(19, usdtIndex)).to.be.revertedWith('Token not for sale')
@@ -174,15 +228,16 @@ describe("MirrahNFT", function() {
     await checkIfWithdrawalGivesCorrectAmount(usdt)
   })
 
+  // Recheck
   async function checkIfWithdrawalGivesCorrectAmount(token: MockERC20) {
     console.log(await token.name() + ":")
     const contractBalance = await token.balanceOf(mirrah.address)
     console.log("Mirrah token balance: " + contractBalance)
-    const dev0 = await token.balanceOf(developer)
+    const dev0 = await token.balanceOf(deployer.address)
     const art0 = await token.balanceOf(artist)
     console.log("Dev initital: " + dev0.toString() + "\nArtist initital: " + art0.toString())
     await mirrah.connect(deployer).withdrawAllOfToken(token.address)
-    const dev1 = await token.balanceOf(developer)
+    const dev1 = await token.balanceOf(deployer.address)
     const art1 = await token.balanceOf(artist)
     console.log("Dev after: " + dev1.toString() + "\nArtist after: " + art1.toString())
     expect(dev1.add(art1).sub(dev0).sub(art0)).to.eq(contractBalance)

@@ -24,7 +24,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     MODELING,
     FIRING,
     COLORING,
-    PRESHIPPING,
+    PREFINAL,
     FINISHED
   }
 
@@ -37,6 +37,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     string userInputOne;
     string userInputTwo;
     string userInputThree;
+    uint8 colorChoice;
     string contactDetails;
   }
 
@@ -113,11 +114,11 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     } else if (stage == Stage.FIRING) {
       return Stage.COLORING;
     } else if (stage == Stage.COLORING) {
-      return Stage.PRESHIPPING;
-    } else if (stage == Stage.PRESHIPPING) {
+      return Stage.PREFINAL;
+    } else if (stage == Stage.PREFINAL) {
       return Stage.FINISHED;
     } else {
-      revert WrongStage(next);
+      revert WrongStage(stage);
     }
   }
 
@@ -151,18 +152,18 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     Currency currency
   ) external
     nonReentrant {
-      checkIfApprovedForAction(tokenId);
-      Stage stageNext = nextStage(nftDetails[tokenId].stage);
+      Stage stage = checkIfApprovedForAction(tokenId);
+      Stage stageNext = nextStage(stage);
       uint16 currentPrice;
       if (stageNext == Stage.MODELING) {
         currentPrice = prices.modeling;
         prices.modeling += prices.modificationIncrement;
       } else if (stageNext == Stage.FIRING) {
         currentPrice = prices.firing;
-        prices.modeling += prices.modificationIncrement;
+        prices.firing += prices.modificationIncrement;
       } else if (stageNext == Stage.COLORING) {
         currentPrice = prices.coloring;
-        prices.modeling += prices.modificationIncrement;
+        prices.coloring += prices.modificationIncrement;
       } else {
         revert();
       }
@@ -194,17 +195,36 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   function requestModification(
     uint256 tokenId,
     Currency currency,
-    uint8 choise1,
-    uint8 choise2,
-    uint8 choise3
+    uint8 choice1,
+    uint8 choice2,
+    uint8 choice3
   ) external
     nonReentrant {
-      checkIfApprovedForAction(tokenId);
+      Stage stage = checkIfApprovedForAction(tokenId);
+      if (nftDetails[tokenId].stage != Stage.COLORING) {
+        revert WrongStage(stage);
+      }
       pay(currency, prices.modification);
       prices.modification += prices.modificationIncrement;
-      nftDetails[tokenId].modificationOne = choise1;
-      nftDetails[tokenId].modificationTwo = choise2;
-      nftDetails[tokenId].modificationThree = choise3;
+      nftDetails[tokenId].modificationOne = choice1;
+      nftDetails[tokenId].modificationTwo = choice2;
+      nftDetails[tokenId].modificationThree = choice3;
+  }
+
+  function requestColoring(
+    uint256 tokenId,
+    Currency currency,
+    uint8 choice
+  ) external
+    nonReentrant {
+      Stage stage = checkIfApprovedForAction(tokenId);
+      if (nftDetails[tokenId].stage != Stage.COLORING) {
+        revert WrongStage(stage);
+      }
+      pay(currency, prices.coloring);
+      prices.coloring += prices.modificationIncrement;
+      nftDetails[tokenId].colorChoice = choice;
+      nftDetails[tokenId].nftBeingUpdated = true;
   }
 
   function requestFinalStage(
@@ -214,7 +234,10 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     string memory optionalContactDetails
   ) external
     nonReentrant {
-      checkIfApprovedForAction(tokenId);
+      Stage stage = checkIfApprovedForAction(tokenId);
+      if (stage != Stage.COLORING && stage != Stage.PREFINAL) {
+        revert WrongStage(stage);
+      }
       pay(currency, ship ? prices.shipping : prices.destroy);
       if (ship) {
         prices.shipping += prices.modificationIncrement;
@@ -271,14 +294,15 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     return "https://s.nft.mirrah.art/one/metadata/";
   }
 
-  function checkIfApprovedForAction(uint tokenId) internal view {
+  function checkIfApprovedForAction(uint tokenId) internal view returns (Stage stage) {
     require(!nftDetails[tokenId].nftBeingUpdated, "Artist works on NFT");
-    Stage stage = nftDetails[tokenId].stage;
-    require(stage != Stage.FINISHED, "Artwork already complete");
+    Stage currentStage = nftDetails[tokenId].stage;
+    require(currentStage != Stage.FINISHED, "Artwork already complete");
     bool isApprovedOrOwner = (ownerOf(tokenId) == _msgSenderERC721A()||
             isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
             getApproved(tokenId) == _msgSenderERC721A());
     if (!isApprovedOrOwner) revert TransferCallerNotOwnerNorApproved();
+    return currentStage;
   }
 
   function pay(Currency currency, uint16 dollarAmount) internal {
