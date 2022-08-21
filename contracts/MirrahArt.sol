@@ -56,6 +56,8 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   }
 
   error WrongStage(Stage stage);
+  error WorkInProgress();
+  error ArtworkCompleted();
 
   /* ========== CONSTANTS ========== */
 
@@ -143,7 +145,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     pay(currency, prices.nft);
     prices.nft = prices.nft + prices.nftIncrement;
     _tokenApprovals[tokenId] = msg.sender;
-    transferFrom(address(this), msg.sender, tokenId);
+    safeTransferFrom(address(this), msg.sender, tokenId);
     nftDetails[tokenId].stage = Stage.NEW;
   }
 
@@ -295,9 +297,11 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   }
 
   function checkIfApprovedForAction(uint tokenId) internal view returns (Stage stage) {
-    require(!nftDetails[tokenId].nftBeingUpdated, "Artist works on NFT");
+    if (nftDetails[tokenId].nftBeingUpdated) 
+      revert WorkInProgress();
     Stage currentStage = nftDetails[tokenId].stage;
-    require(currentStage != Stage.FINISHED, "Artwork already complete");
+    if (currentStage == Stage.FINISHED) 
+      revert ArtworkCompleted();
     bool isApprovedOrOwner = (ownerOf(tokenId) == _msgSenderERC721A()||
             isApprovedForAll(_msgSenderERC721A(), _msgSenderERC721A()) ||
             getApproved(tokenId) == _msgSenderERC721A());

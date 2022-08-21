@@ -181,7 +181,7 @@ describe("MirrahNFT", function() {
       expect(await getStage(id)).to.eq(currentStage)
       expect(await getNextStage(id)).to.eq(nextStage)
       await mirrah.connect(user).requestStateUpdate(id, daiIndex)
-      await expect(mirrah.connect(user).requestStateUpdate(id, daiIndex)).to.be.revertedWith("Artist works on NFT")
+      await expect(mirrah.connect(user).requestStateUpdate(id, daiIndex)).to.be.revertedWith("WorkInProgress")
       await mirrah.connect(deployer).setNftStage(id, indexByStageName.get(nextStage)!)
       expect(await getStage(0)).to.eq(nextStage)
   }
