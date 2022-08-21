@@ -37,6 +37,7 @@ async function main() {
       developer,
       usdc,
       dai,
+      usdtRinkeby,
   ]
   })
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// ERC721A Contracts v4.0.0
+// ERC721A Contracts v4.2.2
 // Creator: Chiru Labs
 
 pragma solidity ^0.8.4;
@@ -8,8 +8,9 @@ import './IERC721ABurnable.sol';
 import '../ERC721A.sol';
 
 /**
- * @title ERC721A Burnable Token
- * @dev ERC721A Token that can be irreversibly burned (destroyed).
+ * @title ERC721ABurnable.
+ *
+ * @dev ERC721A token that can be irreversibly burned (destroyed).
  */
 abstract contract ERC721ABurnable is ERC721A, IERC721ABurnable {
     /**

@@ -144,7 +144,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     require(ownerOf(tokenId) == address(this) && tokenId <= prices.maxTokenIndexForSale, "Token not for sale");
     pay(currency, prices.nft);
     prices.nft = prices.nft + prices.nftIncrement;
-    _tokenApprovals[tokenId] = msg.sender;
+    _tokenApprovals[tokenId].value = msg.sender;
     safeTransferFrom(address(this), msg.sender, tokenId);
     nftDetails[tokenId].stage = Stage.NEW;
   }
