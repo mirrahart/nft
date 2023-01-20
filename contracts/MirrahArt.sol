@@ -124,6 +124,26 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     }
   }
 
+  function stageIndex(
+    Stage stage
+  ) public pure returns (uint) {
+    if (stage == Stage.NEW) {
+      return 0;
+    } else if (stage == Stage.MODELING) {
+      return 1;
+    } else if (stage == Stage.FIRING) {
+      return 2;
+    } else if (stage == Stage.COLORING) {
+      return 3;
+    } else if (stage == Stage.PREFINAL) {
+      return 4;
+    } else if (stage == Stage.FINISHED) {
+      return 5;
+    } else {
+      revert WrongStage(stage);
+    }
+  }
+
   function tokenForCurrency(Currency currency) public view returns (address currencyAddress) {
     if (currency == Currency.USDC) {
       return usdc;
@@ -285,15 +305,24 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     IERC20 tokenToWithdraw
   ) external onlyAdminOrOwner {
       uint balance = tokenToWithdraw.balanceOf(address(this));
-      uint artistShare = 4 * balance / 5;
+      uint artistShare = 7 * balance / 10;
       require(tokenToWithdraw.transfer(artist, artistShare));
       require(tokenToWithdraw.transfer(developer, balance - artistShare));
   }
 
   /* ========== INTERNAL ========== */
 
-  function _baseURI() internal view virtual override returns (string memory) {
-    return "https://s.nft.mirrah.art/one/metadata/";
+  function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    string memory baseURI = "https://s.nft.mirrah.art/one/metadata/";
+    return string(
+      abi.encodePacked(
+        baseURI, 
+        _toString(tokenId),
+        "/",
+        _toString(stageIndex(nftDetails[tokenId].stage)),
+        ".json"
+      )
+    );
   }
 
   function checkIfApprovedForAction(uint tokenId) internal view returns (Stage stage) {
