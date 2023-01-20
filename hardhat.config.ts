@@ -64,7 +64,7 @@ const { PRIVATE_KEY, ETHERSCAN, POLYGONSCAN, FTMSCAN } = process.env;
     }
   },
   solidity: {
-    version: "0.8.15",
+    version: "0.8.17",
     settings: {
       optimizer: {
         enabled: true,

@@ -21,6 +21,7 @@
     "typechain": "^8.0.0"
   },
   "scripts": {
+    "deploy:mumbai": "hardhat run --network mumbai ./scripts/deploy-script.js",
     "deploy:rinkeby": "hardhat run --network rinkeby ./scripts/deploy-script.js",
     "deploy:ropsten": "hardhat run --network ropsten ./scripts/deploy-script.js",
     "deploy:ethereum": "hardhat run --network mainnet ./scripts/deploy-script.js"

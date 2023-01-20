@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.17;
 
 import { InitializableOwnable } from "./access/InitializableOwnable.sol";
 import { ERC721Holder } from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
@@ -275,7 +275,7 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
   }
 
   function setStablesAddress(address[] memory addresses) external onlyOwner {
-    require(addresses.length == 3, "Wrong number of tokens");
+    require(addresses.length == 3, "Mismatch");
     usdc = addresses[0];
     dai = addresses[1];
     usdt = addresses[2];
@@ -313,6 +313,6 @@ contract MirrahArt is InitializableOwnable, ERC721A, ERC721Holder, ReentrancyGua
     address tokenAddress = tokenForCurrency(currency);
     uint amount = dollarAmount * (10 ** IERC20Metadata(tokenAddress).decimals());
     IERC20 token = IERC20(tokenAddress);
-    require(token.transferFrom(msg.sender, address(this), amount), "Payment didn't go through");
+    require(token.transferFrom(msg.sender, address(this), amount), "PaymentFailed");
   }
 }
